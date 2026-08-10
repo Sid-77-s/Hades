@@ -1,0 +1,6 @@
+pydantic
+litellm
+pytest
+python-dotenv
+fastapi
+uvicorn
