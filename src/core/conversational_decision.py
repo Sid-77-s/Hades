@@ -5,7 +5,7 @@ from src.models.conversation import Conversation
 from src.models.mission import MissionUnderstanding, ConversationalDecision
 
 class ConversationalDecisionSystem:
-    def __init__(self, model_name: str = "gemini/gemini-1.5-flash"):
+    def __init__(self, model_name: str = "gemini/gemini-3.5-flash"):
         self.model_name = model_name
         
     def decide(self, conversation: Conversation, understanding: MissionUnderstanding, is_ready_for_lock: bool) -> ConversationalDecision:

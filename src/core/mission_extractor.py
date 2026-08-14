@@ -6,7 +6,7 @@ from src.models.conversation import Conversation, Message
 from src.models.mission import MissionUnderstanding
 
 class MissionExtractor:
-    def __init__(self, model_name: str = "gemini/gemini-1.5-flash"):
+    def __init__(self, model_name: str = "gemini/gemini-3.5-flash"):
         self.model_name = model_name
 
     def extract(self, conversation: Conversation, current_understanding: MissionUnderstanding) -> MissionUnderstanding:

@@ -1,177 +1,217 @@
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener('DOMContentLoaded', () => {
+    // --- State & DOM Elements ---
+    let sessionId = localStorage.getItem('hades_session_id') || null;
+    let userName = localStorage.getItem('hades_user_name') || null;
+    let isProcessing = false;
+    let activeMissionId = null;
+
+    // Settings State
+    let devMode = localStorage.getItem('hades_dev_mode') === 'true';
+    let wakeWord = localStorage.getItem('hades_wake_word') || 'Hades';
+
+    const firstLaunchOverlay = document.getElementById('first-launch-overlay');
+    const launchText2 = document.getElementById('launch-text-2');
+    const nameInputContainer = document.getElementById('name-input-container');
+    const userNameInput = document.getElementById('user-name-input');
+    const saveNameBtn = document.getElementById('save-name-btn');
+    const chatContainer = document.getElementById('chat-container');
     const chatInput = document.getElementById('chat-input');
     const sendBtn = document.getElementById('send-btn');
-    const chatContainer = document.getElementById('chat-container');
-    const visualPresence = document.querySelector('.hades-visual-presence');
-    const greetingText = document.getElementById('greeting-text');
-    const userProfileContainer = document.getElementById('user-profile-container');
-    const profileName = document.getElementById('profile-name');
-    const userAvatar = document.getElementById('user-avatar');
+    const hadesCore = document.getElementById('hades-core');
+    const voiceStatus = document.getElementById('voice-status-indicator');
     
-    let sessionId = null;
-    let userName = localStorage.getItem('user_name');
-    let appState = 'IDLE'; // IDLE, AWAITING_NAME, PROCESSING, RESPONDING
+    // UI Elements for Execution & Settings
+    const contextualMissionWidget = document.getElementById('contextual-mission-widget');
+    const widgetMissionTitle = document.getElementById('widget-mission-title');
+    const executionLog = document.getElementById('widget-execution-log');
     
-    // Setup initial state
-    if (userName) {
-        setUserNameUI(userName);
-    } else {
-        appState = 'AWAITING_NAME';
-        setTimeout(() => {
-            appendMessage('hades', "Hey. I'm Hades.");
-            setTimeout(() => {
-                appendMessage('hades', "Before we start, what should I call you?");
-                speakText("Hey. I'm Hades. Before we start, what should I call you?");
-            }, 1000);
-        }, 500);
+    const navSettings = document.getElementById('nav-settings');
+    const settingsModal = document.getElementById('settings-modal');
+    const closeSettingsBtn = document.getElementById('close-settings-btn');
+    const saveSettingsBtn = document.getElementById('save-settings-btn');
+    const testApiBtn = document.getElementById('test-api-btn');
+    const apiTestStatus = document.getElementById('api-test-status');
+
+    // Load initial settings UI state
+    document.getElementById('setting-wake-word').value = wakeWord;
+    document.getElementById('setting-dev-mode').checked = devMode;
+
+    // --- Visual State Management ---
+    function setHadesState(state) {
+        hadesCore.className = `hades-visual-presence large ${state}`;
     }
 
-    // Auto-resize textarea
-    chatInput.addEventListener('input', function() {
-        this.style.height = 'auto';
-        this.style.height = (this.scrollHeight) + 'px';
-        if (this.value === '') {
-            this.style.height = 'auto'; // reset
-        }
+    // --- Settings UI ---
+    navSettings.addEventListener('click', (e) => {
+        e.preventDefault();
+        settingsModal.style.display = 'flex';
     });
 
-    // Handle Enter and Shift+Enter
-    chatInput.addEventListener('keydown', function(e) {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            handleUserInput();
-        }
+    closeSettingsBtn.addEventListener('click', () => {
+        settingsModal.style.display = 'none';
+        apiTestStatus.innerText = '';
     });
 
-    sendBtn.addEventListener('click', () => handleUserInput());
-
-    function setUserNameUI(name) {
-        greetingText.innerText = `Good evening, ${name}.`;
-        profileName.innerText = name;
-        userAvatar.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`;
-        userProfileContainer.style.display = 'flex';
-    }
-
-    async function handleUserInput(text = null) {
-        const messageText = text || chatInput.value.trim();
-        if (!messageText) return;
-
-        // Display user message
-        appendMessage('user', messageText);
-        if (!text) {
-            chatInput.value = '';
-            chatInput.style.height = 'auto';
-        }
-
-        visualPresence.classList.add('minimized');
-
-        // Handle Onboarding Name Capture
-        if (appState === 'AWAITING_NAME') {
-            userName = messageText;
-            localStorage.setItem('user_name', userName);
-            setUserNameUI(userName);
-            appState = 'IDLE';
-            
-            setTimeout(() => {
-                appendMessage('hades', `Good to meet you, ${userName}.`);
-                setTimeout(() => {
-                    appendMessage('hades', "What are we working on?");
-                    speakText(`Good to meet you, ${userName}. What are we working on?`);
-                }, 1000);
-            }, 500);
+    testApiBtn.addEventListener('click', async () => {
+        const geminiKey = document.getElementById('setting-gemini-key').value;
+        if (!geminiKey) {
+            apiTestStatus.className = 'test-status error';
+            apiTestStatus.innerText = "Key is required to test.";
             return;
         }
 
-        // Send to backend
-        sendToPartnerBrain(messageText);
-    }
-
-    async function sendToPartnerBrain(text) {
-        appState = 'PROCESSING';
-        visualPresence.classList.add('processing');
-        scrollToBottom();
+        apiTestStatus.className = 'test-status';
+        apiTestStatus.innerText = "Testing connection...";
 
         try {
-            const response = await fetch('/api/chat', {
+            const res = await fetch('/api/settings/ai/test', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    message: text,
-                    session_id: sessionId,
-                    user_name: userName
-                })
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ gemini_key: geminiKey })
             });
-
-            if (!response.ok) {
-                throw new Error("API Error");
-            }
-
-            const data = await response.json();
-            sessionId = data.session_id;
-
-            appState = 'RESPONDING';
-            visualPresence.classList.remove('processing');
+            const data = await res.json();
             
-            // Check for specific graceful error
-            if (data.is_error) {
-                appendMessage('hades', data.response);
-                appState = 'IDLE';
-                return;
-            }
-            
-            appendMessage('hades', data.response);
-            speakText(data.response);
-            
-            if(data.mission_status === 'LOCKED') {
-                updateContextPanel("Mission Locked. Hades is ready for execution phase.");
-            } else if (data.action) {
-                updateContextPanel(`Extracting requirements... Action: ${data.action}`);
+            if (data.status === "CONNECTED") {
+                apiTestStatus.className = 'test-status';
+                apiTestStatus.innerText = "Connection Successful.";
             } else {
-                updateContextPanel("Gathering mission requirements...");
+                apiTestStatus.className = 'test-status error';
+                apiTestStatus.innerText = `${data.status}: ${data.reason}`;
             }
+        } catch (e) {
+            apiTestStatus.className = 'test-status error';
+            apiTestStatus.innerText = `Network Error.`;
+        }
+    });
 
-            appState = 'IDLE';
+    saveSettingsBtn.addEventListener('click', async () => {
+        const geminiKey = document.getElementById('setting-gemini-key').value;
+        
+        wakeWord = document.getElementById('setting-wake-word').value.trim() || 'Hades';
+        devMode = document.getElementById('setting-dev-mode').checked;
+        
+        localStorage.setItem('hades_wake_word', wakeWord);
+        localStorage.setItem('hades_dev_mode', devMode);
 
-        } catch (error) {
-            appState = 'ERROR';
-            visualPresence.classList.remove('processing');
-            appendMessage('hades', "I couldn't reach my reasoning service right now. Nothing was changed. Try again.");
-            console.error(error);
+        try {
+            if (geminiKey) {
+                await fetch('/api/settings/ai', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ gemini_key: geminiKey })
+                });
+            }
+            settingsModal.style.display = 'none';
+            appendMessage('hades', 'Systems updated. New configuration applied.');
+        } catch (e) {
+            console.error(e);
+        }
+    });
+
+    // --- SSE Event Listener ---
+    function initSSE() {
+        const evtSource = new EventSource('/api/events');
+        
+        evtSource.onmessage = (e) => {
+            const data = JSON.parse(e.data);
+            handleBackgroundEvent(data);
+        };
+    }
+
+    function logExecutionEvent(text, type = "info") {
+        const div = document.createElement('div');
+        div.className = `execution-event ${type}`;
+        div.innerHTML = `<i class="fa-solid fa-chevron-right"></i> ${text}`;
+        executionLog.appendChild(div);
+        executionLog.scrollTop = executionLog.scrollHeight;
+    }
+
+    function handleBackgroundEvent(event) {
+        const type = event.type;
+        const payload = event.data;
+        
+        if (type === 'MISSION_STATUS_UPDATED') {
+            activeMissionId = payload.mission_id;
+            if (payload.status === 'EXECUTING') {
+                setHadesState('executing');
+                contextualMissionWidget.style.display = 'block';
+                widgetMissionTitle.innerText = `Mission Executing`;
+                logExecutionEvent("Execution Brain took control.", "info");
+            }
+        } else if (type === 'PLAN_CREATED') {
+            logExecutionEvent(`Plan created with ${payload.tasks} task(s).`);
+        } else if (type === 'TASK_STARTED') {
+            logExecutionEvent(`Started task: ${payload.objective}`);
+        } else if (type === 'CAPABILITY_SELECTED') {
+            logExecutionEvent(`Using capability: ${payload.adapter}`);
+        } else if (type === 'TASK_COMPLETED') {
+            logExecutionEvent(`Task completed: ${payload.result}`);
+        } else if (type === 'TASK_FAILED') {
+            logExecutionEvent(`Task failed: ${payload.error}`, "error");
+        } else if (type === 'USER_INTERVENTION_REQUIRED') {
+            logExecutionEvent(`Blocker Hit: ${payload.details}`, "error");
+            setHadesState('error');
+            appendMessage('hades', `**I've hit a blocker.**\n\n${payload.details}\n\nFallback protocols available.`);
+        } else if (type === 'MISSION_COMPLETED') {
+            setHadesState('idle');
+            appendMessage('hades', `**Mission Complete.**\n\n${payload.result}`);
+            logExecutionEvent(`Mission Delivered.`, "info");
+            setTimeout(() => {
+                contextualMissionWidget.style.display = 'none';
+                executionLog.innerHTML = '';
+            }, 8000); // Hide after 8s
         }
     }
 
-    function appendMessage(sender, text) {
-        const msgDiv = document.createElement('div');
-        msgDiv.className = `message ${sender}`;
-        
-        const avatarDiv = document.createElement('div');
-        avatarDiv.className = 'message-avatar';
-        if (sender === 'user') {
-            const nameToUse = userName || 'U';
-            avatarDiv.innerHTML = `<img src="https://ui-avatars.com/api/?name=${encodeURIComponent(nameToUse)}&background=random" style="width:100%;height:100%;border-radius:50%;">`;
+    // --- First Launch Experience ---
+    function checkFirstLaunch() {
+        if (!userName) {
+            firstLaunchOverlay.style.display = 'flex';
+            setTimeout(() => { launchText2.style.display = 'block'; }, 1500);
+            setTimeout(() => { nameInputContainer.style.display = 'flex'; userNameInput.focus(); }, 3000);
         } else {
-            avatarDiv.innerHTML = '<i class="fa-solid fa-atom"></i>';
+            initWorkspace();
+        }
+    }
+
+    saveNameBtn.addEventListener('click', saveName);
+    userNameInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') saveName();
+    });
+
+    function saveName() {
+        const val = userNameInput.value.trim();
+        if (val) {
+            userName = val;
+            localStorage.setItem('hades_user_name', userName);
+            firstLaunchOverlay.style.opacity = '0';
+            setTimeout(() => {
+                firstLaunchOverlay.style.display = 'none';
+                initWorkspace();
+                appendMessage('hades', `Good to meet you, ${userName}.\n\nWhat are we working on?`);
+            }, 1000);
+        }
+    }
+
+    function initWorkspace() {
+        initSSE(); // Connect to Event Bus
+        initVoice(); // Connect continuous listener
+    }
+
+    // --- Chat Logic ---
+    function appendMessage(sender, text, isError = false, devError = null) {
+        const div = document.createElement('div');
+        div.className = `message msg-${sender}`;
+        div.innerHTML = marked.parse(text);
+        
+        if (isError && devMode && devError) {
+            const errDiv = document.createElement('div');
+            errDiv.className = 'dev-error-block';
+            errDiv.innerHTML = `<strong>Developer Mode Exception:</strong><br/>Type: ${devError.type}<br/>Provider: ${devError.provider}<br/>Reason: ${devError.reason}`;
+            div.appendChild(errDiv);
         }
 
-        const contentDiv = document.createElement('div');
-        contentDiv.className = 'message-content';
-        
-        const senderName = document.createElement('div');
-        senderName.className = 'message-sender';
-        senderName.innerText = sender === 'user' ? (userName || 'You') : 'HADES';
-        
-        const textBody = document.createElement('div');
-        textBody.innerHTML = sender === 'hades' ? marked.parse(text) : escapeHTML(text);
-
-        contentDiv.appendChild(senderName);
-        contentDiv.appendChild(textBody);
-
-        msgDiv.appendChild(avatarDiv);
-        msgDiv.appendChild(contentDiv);
-
-        chatContainer.appendChild(msgDiv);
+        chatContainer.appendChild(div);
         scrollToBottom();
     }
 
@@ -179,86 +219,152 @@ document.addEventListener("DOMContentLoaded", () => {
         chatContainer.scrollTop = chatContainer.scrollHeight;
     }
 
-    function escapeHTML(str) {
-        const div = document.createElement('div');
-        div.innerText = str;
-        return div.innerHTML;
-    }
-    
-    function updateContextPanel(text) {
-        const contextPanel = document.querySelector('.panel-section .panel-content');
-        if (contextPanel) {
-            contextPanel.innerHTML = `<p class="text-subtle">${text}</p>`;
-        }
-    }
-
-    // Text to Speech
-    function speakText(text) {
-        if ('speechSynthesis' in window) {
-            // Remove markdown formatting before speaking
-            const cleanText = text.replace(/[*_#`]/g, '');
-            const utterance = new SpeechSynthesisUtterance(cleanText);
-            utterance.rate = 1.0;
-            utterance.pitch = 1.0;
-            window.speechSynthesis.speak(utterance);
-        }
-    }
-
-    // Voice Interaction ("Hey Hades")
-    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        const recognition = new SpeechRecognition();
+    async function sendMessage(text) {
+        if (!text.trim() || isProcessing) return;
         
-        recognition.continuous = true;
-        recognition.interimResults = false;
-        recognition.lang = 'en-US';
+        isProcessing = true;
+        appendMessage('user', text);
+        chatInput.value = '';
+        
+        setHadesState('processing');
 
-        let isListeningToCommand = false;
+        try {
+            const payload = { message: text, user_name: userName };
+            if (sessionId) payload.session_id = sessionId;
 
-        recognition.onresult = function(event) {
-            const resultIndex = event.resultIndex;
-            const transcript = event.results[resultIndex][0].transcript.trim().toLowerCase();
+            const res = await fetch('/api/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            const data = await res.json();
             
-            console.log("Heard:", transcript);
+            if (data.session_id) {
+                sessionId = data.session_id;
+                localStorage.setItem('hades_session_id', sessionId);
+            }
 
-            if (!isListeningToCommand) {
+            appendMessage('hades', data.response, data.is_error, data.developer_error);
+            
+            if (data.mission_status !== "LOCKED" && data.mission_status !== "EXECUTING") {
+                setHadesState('idle');
+            }
+            
+            isProcessing = false;
+        } catch (err) {
+            console.error("API Error", err);
+            setHadesState('error');
+            appendMessage('hades', "I encountered an error connecting to my core processing system.");
+            isProcessing = false;
+        }
+    }
+
+    chatInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            sendMessage(chatInput.value);
+        }
+    });
+
+    // Handle send btn if they manually type and click it
+    chatInput.addEventListener('input', () => {
+        sendBtn.style.display = chatInput.value.trim().length > 0 ? 'block' : 'none';
+    });
+    sendBtn.addEventListener('click', () => {
+        sendMessage(chatInput.value);
+        sendBtn.style.display = 'none';
+    });
+
+    // --- Voice Recognition & TTS ---
+    let recognition = null;
+    let shouldListen = true;
+    
+    function speakText(text) {
+        if (!('speechSynthesis' in window)) return;
+        const cleanText = text.replace(/[*_#`~]/g, '');
+        window.speechSynthesis.cancel(); // Barge-in: Stop whatever is currently playing
+        const utterance = new SpeechSynthesisUtterance(cleanText);
+        utterance.rate = 1.05;
+        utterance.pitch = 0.9;
+        const voices = window.speechSynthesis.getVoices();
+        const enVoice = voices.find(v => v.lang.startsWith('en') && v.name.includes('Male')) || voices.find(v => v.lang.startsWith('en'));
+        if (enVoice) utterance.voice = enVoice;
+        
+        window.speechSynthesis.speak(utterance);
+    }
+
+    // Auto-Listening continuous loop
+    function initVoice() {
+        if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            recognition = new SpeechRecognition();
+            recognition.continuous = true;
+            recognition.interimResults = false;
+            
+            recognition.onstart = () => {
+                if (!isProcessing && hadesCore.className.indexOf('executing') === -1) {
+                    setHadesState('idle');
+                }
+                voiceStatus.classList.add('visible');
+                voiceStatus.innerHTML = `<div class="pulse-dot"></div> Listening for "${wakeWord}"`;
+            };
+            
+            recognition.onresult = (event) => {
+                const results = event.results;
+                const transcript = results[results.length - 1][0].transcript.trim();
+                
+                // Barge-in if the user speaks while TTS is playing
+                if (transcript.length > 0) {
+                    window.speechSynthesis.cancel();
+                }
+
                 // Check for wake word
-                if (transcript.includes('hey hades') || transcript.includes('hades')) {
-                    isListeningToCommand = true;
-                    visualPresence.classList.add('listening'); // Subtle UI feedback
+                const lowerTranscript = transcript.toLowerCase();
+                const lowerWake = wakeWord.toLowerCase();
+                
+                if (lowerTranscript.includes(lowerWake)) {
+                    // Extract command after wake word
+                    const wakeIndex = lowerTranscript.indexOf(lowerWake);
+                    const command = transcript.substring(wakeIndex + wakeWord.length).trim();
                     
-                    // See if the command was part of the same sentence
-                    let command = transcript.replace(/hey hades/g, '').replace(/hades/g, '').trim();
                     if (command.length > 0) {
-                        isListeningToCommand = false;
-                        visualPresence.classList.remove('listening');
-                        handleUserInput(command);
+                        chatInput.value = command;
+                        sendMessage(command);
                     }
                 }
-            } else {
-                // We are listening for the command
-                if (transcript.length > 0) {
-                    isListeningToCommand = false;
-                    visualPresence.classList.remove('listening');
-                    handleUserInput(transcript);
+            };
+            
+            recognition.onend = () => {
+                if (shouldListen) {
+                    // Automatically restart listening if we shouldn't have stopped
+                    try {
+                        recognition.start();
+                    } catch (e) {
+                        // ignore if already started
+                    }
+                } else {
+                    voiceStatus.classList.remove('visible');
                 }
-            }
-        };
+            };
 
-        recognition.onerror = function(event) {
-            console.log("Speech recognition error", event.error);
-        };
-
-        recognition.onend = function() {
-            // Keep listening
+            // Start it
             try {
                 recognition.start();
-            } catch(e) {}
-        };
-
-        // Start listening
-        try {
-            recognition.start();
-        } catch(e) {}
+            } catch (e) {}
+        }
     }
+
+    // Wrap the send message response to trigger TTS
+    const originalAppend = appendMessage;
+    appendMessage = function(sender, text, isErr, devErr) {
+        originalAppend(sender, text, isErr, devErr);
+        if (sender === 'hades') {
+            speakText(text);
+        }
+    };
+
+    // --- Init ---
+    checkFirstLaunch();
 });
+

@@ -1,24 +1,53 @@
 import os
 import uuid
+import asyncio
+import traceback
 from typing import Dict, Optional, Any
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from dotenv import load_dotenv
+from sse_starlette.sse import EventSourceResponse
 
-from src.models.mission import Mission
+from src.models.mission import Mission, MissionStatus
 from src.models.conversation import Conversation
 from src.core.partner_brain import PartnerBrain
-import litellm
+from src.core.research_manager import ResearchManager
+from src.models.conversation import ConversationIntent
+
+# New Imports
+from src.core.config_manager import ConfigManager
+from src.core.memory_manager import MemoryManager
+from src.core.event_bus import EventBus
+from src.core.execution.execution_brain import ExecutionBrain
+from src.capabilities.registry import CapabilityRegistry
+from src.capabilities.adapters.gamma_adapter import GammaPlaywrightAdapter
+from src.capabilities.adapters.pptx_adapter import PptxAdapter
 
 load_dotenv()
 
+# Initialize Core Managers
+config_manager = ConfigManager()
+
+# Ensure LiteLLM picks up the persisted key
+if config_manager.get_credentials().gemini_key:
+    os.environ["GEMINI_API_KEY"] = config_manager.get_credentials().gemini_key
+
+memory_manager = MemoryManager()
+event_bus = EventBus()
+
+# Initialize Capabilities
+registry = CapabilityRegistry()
+registry.register("PRESENTATIONS", GammaPlaywrightAdapter())
+registry.register("PRESENTATIONS_FALLBACK", PptxAdapter())
+
 app = FastAPI(title="Hades OS API")
 
-# Initialize Partner Brain
+# Initialize Brains
 brain = PartnerBrain()
+research_manager = ResearchManager()
+execution_brain = ExecutionBrain(capability_registry=registry)
 
-# In-memory session storage for the demo
 class SessionState:
     def __init__(self):
         self.mission = Mission(id=str(uuid.uuid4()))
@@ -36,7 +65,23 @@ class ChatResponse(BaseModel):
     session_id: str
     mission_status: str
     action: Optional[str] = None
+    intent: Optional[str] = None
     is_error: bool = False
+    developer_error: Optional[Dict[str, Any]] = None
+
+@app.get("/api/events")
+async def events_endpoint(request: Request):
+    async def event_generator():
+        q = await event_bus.subscribe()
+        try:
+            while True:
+                if await request.is_disconnected():
+                    break
+                event = await q.get()
+                yield {"data": event}
+        finally:
+            event_bus.unsubscribe(q)
+    return EventSourceResponse(event_generator())
 
 @app.post("/api/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest):
@@ -46,57 +91,119 @@ async def chat(request: ChatRequest):
         sessions[session_id] = SessionState()
         
     session = sessions[session_id]
-    
-    # Simple prefixing for the user name context if provided
-    context_prefix = ""
-    if request.user_name and len(session.conversation.messages) == 0:
-        context_prefix = f"[System Context: The user's name is {request.user_name}] "
-        
-    user_message = context_prefix + request.message
+    user_message = request.message
     
     try:
-        # Process the message through Partner Brain
-        updated_mission, response_text, decision = brain.process_message(
+        updated_mission, response_text, decision, intent = brain.process_message(
             session.mission, 
             session.conversation, 
             user_message
         )
         
-        # Update the session state
+        # If the mission just locked, trigger ExecutionBrain in background
+        if updated_mission.status == MissionStatus.LOCKED and session.mission.status != MissionStatus.LOCKED:
+            print("[main] Mission locked! Starting execution brain.")
+            # We don't await this, let it run in background
+            asyncio.create_task(execution_brain.process_mission(updated_mission))
+            
         session.mission = updated_mission
-        
         action_name = decision.action.value if decision and decision.action else None
+        intent_name = intent.value if intent else None
         
         return ChatResponse(
             response=response_text,
             session_id=session_id,
             mission_status=updated_mission.status.value,
             action=action_name,
+            intent=intent_name,
             is_error=False
         )
-    except litellm.RateLimitError as e:
-        print(f"RateLimitError: {e}")
-        return ChatResponse(
-            response="I couldn't reach my reasoning service right now. Nothing was changed. Try again.",
-            session_id=session_id,
-            mission_status=session.mission.status.value,
-            is_error=True
-        )
     except Exception as e:
-        print(f"Error processing chat: {e}")
+        print(f"[HADES] Error: {e}")
+        traceback.print_exc()
+        
+        dev_err = {
+            "provider": config_manager.get_settings().model_provider,
+            "status": getattr(e, "status_code", 500),
+            "reason": str(e),
+            "type": e.__class__.__name__
+        }
+        
+        natural_response = "I couldn't reach my core processing system just now."
+        if "AuthenticationError" in dev_err["type"]:
+            natural_response = "My access credentials appear to be invalid. Check the settings."
+        elif "RateLimitError" in dev_err["type"]:
+            natural_response = "I'm receiving too many requests right now. Give me a moment."
+            
         return ChatResponse(
-            response="I couldn't reach my reasoning service right now. Nothing was changed. Try again.",
+            response=natural_response,
             session_id=session_id,
             mission_status=session.mission.status.value,
-            is_error=True
+            is_error=True,
+            developer_error=dev_err
         )
 
-# Ensure static directory exists
+class SettingsUpdateRequest(BaseModel):
+    gamma_email: str
+    gamma_password: str
+
+class AISettingsUpdateRequest(BaseModel):
+    gemini_key: str
+
+@app.post("/api/settings")
+async def update_settings(req: SettingsUpdateRequest):
+    creds = config_manager.get_credentials()
+    creds.gamma_email = req.gamma_email
+    creds.gamma_password = req.gamma_password
+    config_manager.save_config()
+    return {"status": "success"}
+
+@app.post("/api/settings/ai")
+async def update_ai_settings(req: AISettingsUpdateRequest):
+    creds = config_manager.get_credentials()
+    creds.gemini_key = req.gemini_key
+    config_manager.save_config()
+    # Synchronize for LiteLLM
+    os.environ["GEMINI_API_KEY"] = req.gemini_key
+    return {"status": "success"}
+
+@app.post("/api/settings/ai/test")
+async def test_ai_settings(req: AISettingsUpdateRequest):
+    import litellm
+    try:
+        # Minimal harmless request
+        response = litellm.completion(
+            model="gemini/gemini-1.5-flash", 
+            messages=[{"role": "user", "content": "ping"}],
+            api_key=req.gemini_key,
+            max_tokens=5
+        )
+        return {"status": "CONNECTED", "message": "Connection successful."}
+    except Exception as e:
+        status = "ERROR"
+        if "AuthenticationError" in e.__class__.__name__:
+            status = "AUTHENTICATION FAILED"
+        elif "RateLimitError" in e.__class__.__name__:
+            status = "RATE LIMITED"
+        return {"status": status, "reason": str(e), "type": e.__class__.__name__}
+
+@app.get("/api/memory")
+async def get_memory():
+    return memory_manager.get_mission_history()
+
+@app.post("/api/execution/recover")
+async def execution_recover(data: dict):
+    # Endpoint to allow frontend to authorize fallback
+    mission_id = data.get("mission_id")
+    print(f"[main] User authorized fallback for mission {mission_id}")
+    registry.adapters["PRESENTATIONS"] = [PptxAdapter()] + registry.adapters["PRESENTATIONS"]
+    event_bus.publish_sync("RECOVERY_STARTED", {"mission_id": mission_id, "message": "Switching to local PPTX fallback..."})
+    return {"status": "ok"}
+
 os.makedirs("static", exist_ok=True)
 os.makedirs("static/css", exist_ok=True)
 os.makedirs("static/js", exist_ok=True)
 
-# Mount the static files for the frontend
 app.mount("/", StaticFiles(directory="static", html=True), name="static")
 
 if __name__ == "__main__":
