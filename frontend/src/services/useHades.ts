@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { hadesService, HadesState, ChatMessage, ExecutionEvent } from './HadesService';
 
 export function useHades() {
@@ -23,14 +23,18 @@ export function useHades() {
     return () => unsubscribe();
   }, []);
 
+  const sendMessage = useCallback((text: string) => hadesService.sendMessage(text), []);
+  const saveName = useCallback((name: string) => hadesService.saveName(name), []);
+  const init = useCallback(() => hadesService.init(), []);
+
   return {
     messages,
     executionEvents,
     hadesState,
     isListening,
     userName,
-    sendMessage: (text: string) => hadesService.sendMessage(text),
-    saveName: (name: string) => hadesService.saveName(name),
-    init: () => hadesService.init(),
+    sendMessage,
+    saveName,
+    init,
   };
 }

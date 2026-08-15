@@ -47,7 +47,7 @@ export function App() {
   }
 
   return (
-    <div className="flex h-full min-h-[880px] w-full gap-3 bg-void p-3 font-sans text-slate-200">
+    <div className="flex h-screen w-full gap-3 bg-void p-3 font-sans text-slate-200 overflow-hidden">
       <div className="relative flex min-w-0 flex-1 gap-0 overflow-hidden rounded-md border border-ion/20 bg-abyss/70">
         <div className="relative flex min-w-0 flex-1 flex-col gap-4 overflow-hidden p-4">
           <HeroCore />

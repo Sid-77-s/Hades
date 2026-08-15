@@ -1,12 +1,15 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { BellIcon, ChevronDownIcon, SearchIcon, SettingsIcon, SunIcon } from 'lucide-react';
 import { userAvatar } from '../data/dashboard';
 import { HadesMark } from './HadesMark';
+import { SettingsModal } from './SettingsModal';
 
 const iconButton =
 'flex h-9 w-9 items-center justify-center rounded-md border border-ion/25 bg-panel/60 text-ion-soft transition-colors duration-150 ease-out hover:border-ion/60 hover:text-white focus:outline-none focus-visible:ring-1 focus-visible:ring-ion';
 
 export function TopBar() {
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
   return (
     <header className="grid grid-cols-[240px_1fr_240px] items-start gap-6">
       <div className="flex items-center gap-3 self-start rounded-md border border-ion/25 bg-panel/60 px-3 py-2">
@@ -40,7 +43,12 @@ export function TopBar() {
         <button type="button" className={iconButton} aria-label="Toggle theme">
           <SunIcon size={16} strokeWidth={1.75} />
         </button>
-        <button type="button" className={iconButton} aria-label="Settings">
+        <button 
+          type="button" 
+          className={iconButton} 
+          aria-label="Settings"
+          onClick={() => setIsSettingsOpen(true)}
+        >
           <SettingsIcon size={16} strokeWidth={1.75} />
         </button>
         <button
@@ -59,6 +67,7 @@ export function TopBar() {
           <ChevronDownIcon size={14} className="text-muted" strokeWidth={1.75} />
         </button>
       </div>
-    </header>);
-
+      <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
+    </header>
+  );
 }

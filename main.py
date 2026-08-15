@@ -20,9 +20,7 @@ from src.core.config_manager import ConfigManager
 from src.core.memory_manager import MemoryManager
 from src.core.event_bus import EventBus
 from src.core.execution.execution_brain import ExecutionBrain
-from src.capabilities.registry import CapabilityRegistry
-from src.capabilities.adapters.gamma_adapter import GammaPlaywrightAdapter
-from src.capabilities.adapters.pptx_adapter import PptxAdapter
+from src.core.execution.execution_brain import ExecutionBrain
 
 load_dotenv()
 
@@ -36,17 +34,14 @@ if config_manager.get_credentials().gemini_key:
 memory_manager = MemoryManager()
 event_bus = EventBus()
 
-# Initialize Capabilities
-registry = CapabilityRegistry()
-registry.register("PRESENTATIONS", GammaPlaywrightAdapter())
-registry.register("PRESENTATIONS_FALLBACK", PptxAdapter())
+# Removed obsolete CapabilityRegistry initialization
 
 app = FastAPI(title="Hades OS API")
 
 # Initialize Brains
 brain = PartnerBrain()
 research_manager = ResearchManager()
-execution_brain = ExecutionBrain(capability_registry=registry)
+execution_brain = ExecutionBrain()
 
 class SessionState:
     def __init__(self):
@@ -143,49 +138,23 @@ async def chat(request: ChatRequest):
             developer_error=dev_err
         )
 
-class SettingsUpdateRequest(BaseModel):
-    gamma_email: str
-    gamma_password: str
+from src.skills.registry import registry as skill_registry
 
-class AISettingsUpdateRequest(BaseModel):
-    gemini_key: str
-
-@app.post("/api/settings")
-async def update_settings(req: SettingsUpdateRequest):
-    creds = config_manager.get_credentials()
-    creds.gamma_email = req.gamma_email
-    creds.gamma_password = req.gamma_password
-    config_manager.save_config()
-    return {"status": "success"}
-
-@app.post("/api/settings/ai")
-async def update_ai_settings(req: AISettingsUpdateRequest):
-    creds = config_manager.get_credentials()
-    creds.gemini_key = req.gemini_key
-    config_manager.save_config()
-    # Synchronize for LiteLLM
-    os.environ["GEMINI_API_KEY"] = req.gemini_key
-    return {"status": "success"}
-
-@app.post("/api/settings/ai/test")
-async def test_ai_settings(req: AISettingsUpdateRequest):
-    import litellm
-    try:
-        # Minimal harmless request
-        response = litellm.completion(
-            model="gemini/gemini-1.5-flash", 
-            messages=[{"role": "user", "content": "ping"}],
-            api_key=req.gemini_key,
-            max_tokens=5
-        )
-        return {"status": "CONNECTED", "message": "Connection successful."}
-    except Exception as e:
-        status = "ERROR"
-        if "AuthenticationError" in e.__class__.__name__:
-            status = "AUTHENTICATION FAILED"
-        elif "RateLimitError" in e.__class__.__name__:
-            status = "RATE LIMITED"
-        return {"status": status, "reason": str(e), "type": e.__class__.__name__}
+@app.get("/api/config/status")
+async def get_config_status():
+    """Returns the health status of all skills to power the Settings UI."""
+    skill_registry.discover_skills()
+    skills = skill_registry.get_all_skills()
+    
+    status_map = {}
+    for skill in skills:
+        status_map[skill.metadata.skill_id] = {
+            "name": skill.metadata.name,
+            "status": skill.metadata.health_status,
+            "category": skill.metadata.category
+        }
+        
+    return {"skills": status_map}
 
 @app.get("/api/memory")
 async def get_memory():
@@ -196,8 +165,7 @@ async def execution_recover(data: dict):
     # Endpoint to allow frontend to authorize fallback
     mission_id = data.get("mission_id")
     print(f"[main] User authorized fallback for mission {mission_id}")
-    registry.adapters["PRESENTATIONS"] = [PptxAdapter()] + registry.adapters["PRESENTATIONS"]
-    event_bus.publish_sync("RECOVERY_STARTED", {"mission_id": mission_id, "message": "Switching to local PPTX fallback..."})
+    event_bus.publish_sync("RECOVERY_STARTED", {"mission_id": mission_id, "message": "Switching to fallback..."})
     return {"status": "ok"}
 
 os.makedirs("static", exist_ok=True)

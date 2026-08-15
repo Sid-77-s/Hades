@@ -5,14 +5,18 @@ from src.core.execution.task_graph import TaskGraph, Task, TaskStatus
 from src.core.execution.review_engine import ReviewEngine
 from src.core.execution.uncertainty_engine import UncertaintyEngine
 from src.core.event_bus import EventBus
+from src.skills.registry import registry as skill_registry
 import uuid
 
 class ExecutionBrain:
-    def __init__(self, capability_registry=None):
+    def __init__(self):
         self.review_engine = ReviewEngine()
         self.uncertainty_engine = UncertaintyEngine()
         self.event_bus = EventBus()
-        self.registry = capability_registry
+        self.registry = skill_registry
+        
+        # Auto-discover skills on initialization
+        self.registry.discover_skills()
         
     async def process_mission(self, mission: Mission):
         """
@@ -91,22 +95,31 @@ class ExecutionBrain:
         task.status = TaskStatus.RUNNING
         self.event_bus.publish_sync("TASK_STARTED", {"task_id": task.id, "objective": task.objective})
         
-        adapter = None
+        skill = None
         if self.registry:
-            adapter = self.registry.get_best_adapter(task.allowed_capabilities)
+            # Simple heuristic: try to find a healthy skill matching the requested category
+            for category in task.allowed_capabilities:
+                skills = self.registry.get_skills_by_category(category.lower())
+                healthy_skills = [s for s in skills if s.metadata.health_status == "READY"]
+                if healthy_skills:
+                    skill = healthy_skills[0]
+                    break
             
-        if not adapter:
+        if not skill:
             graph.mark_failed(task.id, "No suitable capability found.")
             self.uncertainty_engine.handle_uncertainty(mission, "MISSING_CAPABILITY", "I lack the capability to perform this task.")
             return
 
-        # Clean up adapter name for user UI
-        friendly_name = adapter.__class__.__name__.replace("Adapter", "").replace("Playwright", " Automation")
+        # Clean up skill name for user UI
+        friendly_name = skill.metadata.name
         self.event_bus.publish_sync("CAPABILITY_SELECTED", {"task_id": task.id, "adapter": friendly_name})
         
         try:
             # 1. Execute
-            result = await adapter.execute(task.objective, mission.understanding.dict())
+            result = await skill.execute(
+                params={"command": task.objective, "query": task.objective, "topic": task.objective, "action": "read"}, 
+                context=mission.understanding.model_dump()
+            )
             
             # 2. Review
             review = self.review_engine.review_task(task, str(result))
