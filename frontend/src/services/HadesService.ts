@@ -8,6 +8,7 @@ export interface ChatMessage {
   id: string;
   sender: 'user' | 'hades';
   text: string;
+  imagePreview?: string;
   isError?: boolean;
   devError?: DeveloperError;
   timestamp: Date;
@@ -70,8 +71,12 @@ class HadesService {
     this.eventSource = new EventSource('/api/events');
     
     this.eventSource.onmessage = (e) => {
-      const data = JSON.parse(e.data);
-      this.handleBackgroundEvent(data);
+      try {
+        const data = JSON.parse(e.data);
+        this.handleBackgroundEvent(data);
+      } catch (err) {
+        console.error("SSE parse error", err);
+      }
     };
   }
 
@@ -105,13 +110,9 @@ class HadesService {
       this.logExecutionEvent(`Task completed: ${payload.result}`);
     } else if (type === 'TASK_FAILED') {
       this.logExecutionEvent(`Task failed: ${payload.error}`, "error");
-    } else if (type === 'USER_INTERVENTION_REQUIRED') {
-      this.logExecutionEvent(`Blocker Hit: ${payload.details}`, "error");
-      this.hadesState = 'error';
-      this.appendMessage('hades', `**I've hit a blocker.**\n\n${payload.details}\n\nFallback protocols available.`);
     } else if (type === 'MISSION_COMPLETED') {
       this.hadesState = 'idle';
-      this.appendMessage('hades', `**Mission Complete.**\n\n${payload.result}`);
+      this.appendMessage('hades', `Hey, I've finished the mission we discussed.\n\n${payload.result}`);
       this.logExecutionEvent(`Mission Delivered.`, "info");
       setTimeout(() => {
         this.activeMissionId = null;
@@ -121,11 +122,12 @@ class HadesService {
     this.notify();
   }
 
-  public appendMessage(sender: 'user' | 'hades', text: string, isError: boolean = false, devError: DeveloperError | null = null) {
+  public appendMessage(sender: 'user' | 'hades', text: string, imagePreview?: string, isError: boolean = false, devError: DeveloperError | null = null) {
     this.messages.push({
       id: Math.random().toString(36).substring(7),
       sender,
       text,
+      imagePreview,
       isError,
       devError: devError || undefined,
       timestamp: new Date()
@@ -137,16 +139,16 @@ class HadesService {
     this.notify();
   }
 
-  public async sendMessage(text: string) {
-    if (!text.trim() || this.isProcessing) return;
+  public async sendMessage(text: string, imageData?: string) {
+    if ((!text.trim() && !imageData) || this.isProcessing) return;
     
     this.isProcessing = true;
-    this.appendMessage('user', text);
+    this.appendMessage('user', text, imageData);
     this.hadesState = 'processing';
     this.notify();
 
     try {
-      const payload: any = { message: text, user_name: this.userName };
+      const payload: any = { message: text, user_name: this.userName, image_data: imageData };
       if (this.sessionId) payload.session_id = this.sessionId;
 
       const res = await fetch('/api/chat', {
@@ -162,7 +164,7 @@ class HadesService {
         localStorage.setItem('hades_session_id', this.sessionId);
       }
 
-      this.appendMessage('hades', data.response, data.is_error, data.developer_error);
+      this.appendMessage('hades', data.response, undefined, data.is_error, data.developer_error);
       
       if (data.mission_status !== "LOCKED" && data.mission_status !== "EXECUTING") {
         this.hadesState = 'idle';
@@ -173,7 +175,7 @@ class HadesService {
     } catch (err) {
       console.error("API Error", err);
       this.hadesState = 'error';
-      this.appendMessage('hades', "I encountered an error connecting to my core processing system.", true);
+      this.appendMessage('hades', "I encountered an error connecting to my core processing system.", undefined, true);
       this.isProcessing = false;
       this.notify();
     }
@@ -190,7 +192,25 @@ class HadesService {
     }
   }
 
+  public toggleListening(): boolean {
+    if (!this.recognition) return false;
+    if (this.isListening) {
+      try {
+        this.recognition.stop();
+        this.isListening = false;
+      } catch (e) {}
+    } else {
+      try {
+        this.recognition.start();
+        this.isListening = true;
+      } catch (e) {}
+    }
+    this.notify();
+    return this.isListening;
+  }
+
   private speakText(text: string) {
+    // If browser supports speech synthesis and backend voice is local
     if (!('speechSynthesis' in window)) return;
     const cleanText = text.replace(/[*_#`~]/g, '');
     window.speechSynthesis.cancel();
@@ -213,9 +233,6 @@ class HadesService {
       this.recognition.interimResults = false;
       
       this.recognition.onstart = () => {
-        if (!this.isProcessing && this.hadesState !== 'executing') {
-          this.hadesState = 'idle';
-        }
         this.isListening = true;
         this.notify();
       };
@@ -226,59 +243,15 @@ class HadesService {
         
         if (transcript.length > 0) {
           window.speechSynthesis.cancel();
-        }
-
-        const lowerTranscript = transcript.toLowerCase();
-        const lowerWake = this.wakeWord.toLowerCase();
-        
-        if (lowerTranscript.includes(lowerWake)) {
-          const wakeIndex = lowerTranscript.indexOf(lowerWake);
-          const command = transcript.substring(wakeIndex + this.wakeWord.length).trim();
-          
-          if (command.length > 0) {
-            this.sendMessage(command);
-          }
+          this.sendMessage(transcript);
         }
       };
       
       this.recognition.onend = () => {
         this.isListening = false;
         this.notify();
-        try {
-          this.recognition.start();
-        } catch (e) {}
       };
-
-      try {
-        this.recognition.start();
-      } catch (e) {}
     }
-  }
-
-  public async testApi(geminiKey: string) {
-    const res = await fetch('/api/settings/ai/test', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ gemini_key: geminiKey })
-    });
-    return await res.json();
-  }
-
-  public async saveSettings(geminiKey: string, wakeWord: string, devMode: boolean) {
-    this.wakeWord = wakeWord.trim() || 'Hades';
-    this.devMode = devMode;
-    localStorage.setItem('hades_wake_word', this.wakeWord);
-    localStorage.setItem('hades_dev_mode', String(this.devMode));
-
-    if (geminiKey) {
-      await fetch('/api/settings/ai', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ gemini_key: geminiKey })
-      });
-    }
-    this.appendMessage('hades', 'Systems updated. New configuration applied.');
-    this.notify();
   }
 }
 

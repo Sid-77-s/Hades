@@ -1,1 +1,119 @@
-{}
+{
+  "workers": [
+    {
+      "id": "gemini-flash",
+      "provider": "google",
+      "model_name": "gemini/gemini-flash-latest",
+      "display_name": "Gemini Flash (Latest)",
+      "capabilities": [
+        "general",
+        "fast",
+        "research",
+        "vision"
+      ],
+      "specialization": "Fast / Research (Free Tier)",
+      "enabled": true,
+      "env_key": "GEMINI_API_KEY"
+    },
+    {
+      "id": "gemini-3.5",
+      "provider": "google",
+      "model_name": "gemini/gemini-3.5-flash",
+      "display_name": "Gemini 3.5 Flash",
+      "capabilities": [
+        "general",
+        "fast",
+        "coding",
+        "research"
+      ],
+      "specialization": "Coding / Fast (Free Tier)",
+      "enabled": true,
+      "env_key": "GEMINI_API_KEY"
+    },
+    {
+      "id": "groq-llama3-70b",
+      "provider": "groq",
+      "model_name": "groq/llama-3.3-70b-versatile",
+      "display_name": "Llama 3.3 70B (Groq)",
+      "capabilities": [
+        "general",
+        "reasoning",
+        "coding",
+        "fast"
+      ],
+      "specialization": "Ultra Fast Open-Source (Free Tier)",
+      "enabled": true,
+      "env_key": "GROQ_API_KEY"
+    },
+    {
+      "id": "groq-mixtral",
+      "provider": "groq",
+      "model_name": "groq/mixtral-8x7b-32768",
+      "display_name": "Mixtral 8x7B (Groq)",
+      "capabilities": [
+        "general",
+        "coding",
+        "fast"
+      ],
+      "specialization": "Open Source Mixture-of-Experts (Free Tier)",
+      "enabled": true,
+      "env_key": "GROQ_API_KEY"
+    },
+    {
+      "id": "openrouter-free",
+      "provider": "openrouter",
+      "model_name": "openrouter/meta-llama/llama-3.2-3b-instruct:free",
+      "display_name": "Llama 3.2 (OpenRouter Free)",
+      "capabilities": [
+        "general",
+        "fast"
+      ],
+      "specialization": "100% Free Public Endpoint",
+      "enabled": true,
+      "env_key": "OPENROUTER_API_KEY"
+    },
+    {
+      "id": "ollama-local",
+      "provider": "ollama",
+      "model_name": "ollama/llama3",
+      "display_name": "Llama 3 (Local Ollama)",
+      "capabilities": [
+        "general",
+        "coding",
+        "privacy"
+      ],
+      "specialization": "Local Open Source / 100% Free (No Key Required)",
+      "enabled": true,
+      "env_key": "OLLAMA_API_BASE"
+    },
+    {
+      "id": "gpt-4o",
+      "provider": "openai",
+      "model_name": "gpt-4o",
+      "display_name": "GPT-4o",
+      "capabilities": [
+        "general",
+        "reasoning",
+        "vision",
+        "coding"
+      ],
+      "specialization": "Reasoning / General",
+      "enabled": true,
+      "env_key": "OPENAI_API_KEY"
+    },
+    {
+      "id": "claude-3-5-sonnet",
+      "provider": "anthropic",
+      "model_name": "claude-3-5-sonnet-20241022",
+      "display_name": "Claude 3.5 Sonnet",
+      "capabilities": [
+        "reasoning",
+        "coding",
+        "research"
+      ],
+      "specialization": "Coding / Reasoning",
+      "enabled": false,
+      "env_key": "ANTHROPIC_API_KEY"
+    }
+  ]
+}

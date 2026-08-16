@@ -23,8 +23,9 @@ export function useHades() {
     return () => unsubscribe();
   }, []);
 
-  const sendMessage = useCallback((text: string) => hadesService.sendMessage(text), []);
+  const sendMessage = useCallback((text: string, imageData?: string) => hadesService.sendMessage(text, imageData), []);
   const saveName = useCallback((name: string) => hadesService.saveName(name), []);
+  const toggleListening = useCallback(() => hadesService.toggleListening(), []);
   const init = useCallback(() => hadesService.init(), []);
 
   return {
@@ -35,6 +36,7 @@ export function useHades() {
     userName,
     sendMessage,
     saveName,
+    toggleListening,
     init,
   };
 }
