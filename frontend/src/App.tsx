@@ -3,12 +3,8 @@ import { AgendaCard } from './components/AgendaCard';
 import { ChatPanel } from './components/ChatPanel';
 import { Composer } from './components/Composer';
 import { HeroCore } from './components/HeroCore';
-import { MissionCard } from './components/MissionCard';
-import { QuickTools } from './components/QuickTools';
-import { RecentActivity } from './components/RecentActivity';
-import { SystemMetrics } from './components/SystemMetrics';
-import { SystemStatusCard } from './components/SystemStatusCard';
 import { TopBar } from './components/TopBar';
+import { HadesPresence } from './components/HadesPresence';
 import { useHades } from './services/useHades';
 
 export function App() {
@@ -54,10 +50,9 @@ export function App() {
           <TopBar />
 
           <div className="relative z-10 grid min-h-0 flex-1 grid-cols-1 gap-5 lg:grid-cols-[280px_minmax(0,1fr)]">
-            <div className="flex flex-col gap-3">
-              <MissionCard />
-              <SystemStatusCard />
-              <div className="mt-auto">
+            <div className="flex flex-col gap-3 pt-2">
+              <HadesPresence />
+              <div className="mt-4">
                 <AgendaCard />
               </div>
             </div>
@@ -79,14 +74,6 @@ export function App() {
             </div>
           </div>
         </div>
-
-        <aside className="relative z-10 hidden w-[300px] shrink-0 flex-col gap-3 overflow-y-auto border-l border-ion/15 bg-abyss/85 p-3 scroll-thin lg:flex">
-          <SystemMetrics />
-          <RecentActivity />
-          <div className="mt-auto">
-            <QuickTools />
-          </div>
-        </aside>
       </div>
     </div>
   );

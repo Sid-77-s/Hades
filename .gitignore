@@ -4,3 +4,7 @@ __pycache__/
 *.pyc
 .idea/
 .vscode/
+node_modules/
+dist/
+ffmpeg.exe
+HADES WALKTHROUGH.mp4

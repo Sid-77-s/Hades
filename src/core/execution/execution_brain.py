@@ -21,21 +21,17 @@ class ExecutionBrain:
         
     async def process_mission(self, mission: Mission):
         """
-        Main background orchestration loop for a LOCKED mission.
+        Main background orchestration loop for an AUTHORIZED_EXECUTION mission.
         """
-        if mission.status != MissionStatus.LOCKED:
-            print("[ExecutionBrain] Mission not locked.")
+        if mission.status != MissionStatus.AUTHORIZED_EXECUTION:
+            print("[ExecutionBrain] Mission not authorized for execution.")
             return
 
-        mission.status = MissionStatus.PLANNING
+        mission.status = MissionStatus.BACKGROUND_WORK
         self.event_bus.publish_sync("MISSION_STATUS_UPDATED", {"mission_id": mission.id, "status": mission.status.value})
         
         # 1. Plan Generation
         task_graph = self._generate_plan(mission)
-        self.event_bus.publish_sync("PLAN_CREATED", {"mission_id": mission.id, "tasks": len(task_graph.tasks)})
-        
-        mission.status = MissionStatus.EXECUTING
-        self.event_bus.publish_sync("MISSION_STATUS_UPDATED", {"mission_id": mission.id, "status": mission.status.value})
         
         # 2. Execution Loop
         while not task_graph.is_complete() and not task_graph.has_failures():
@@ -51,21 +47,42 @@ class ExecutionBrain:
                 
         # 3. Handle Completion or Failure
         if task_graph.is_complete():
-            mission.status = MissionStatus.DELIVERED
-            # Extract final artifact/result message
-            final_msg = "I've completed what we discussed."
+            mission.status = MissionStatus.COMPLETED
+            
+            raw_results = ""
             for t in task_graph.tasks.values():
                 if t.actual_output:
-                    final_msg += f"\n\n{t.actual_output}"
+                    raw_results += f"\n{t.actual_output}"
+                    
+            try:
+                import litellm
+                model = worker_manager.select_worker("fast") or "gemini/gemini-flash-latest"
+                prompt = f"""You are Hades returning to the user after completing background work.
+The user's objective was: {mission.understanding.objective.value}
+The raw result from the system is: {raw_results[:1500]}
+
+Generate a short, natural, conversational message telling the user you are back and what you found.
+DO NOT say "Task completed."
+DO NOT paste the entire raw text. Just give the conversational summary and highlight what matters.
+Keep it under 4 sentences.
+Example: "Hey, I'm back. I finished the research. I found six strong competitors, but two are much closer to what we're building than I expected. I've pulled everything together for you."
+"""
+                res = litellm.completion(model=model, messages=[{"role": "system", "content": prompt}], max_tokens=150)
+                final_msg = res.choices[0].message.content
+                final_msg += f"\n\n---\n{raw_results}"
+            except Exception as e:
+                print(f"[ExecutionBrain] Failed to generate conversational return: {e}")
+                final_msg = f"Hey, I'm back. I finished the work.\n\n{raw_results}"
+
             self.event_bus.publish_sync("MISSION_COMPLETED", {
                 "mission_id": mission.id, 
                 "result": final_msg
             })
         else:
-            mission.status = MissionStatus.BLOCKED
+            mission.status = MissionStatus.NEEDS_USER
             self.event_bus.publish_sync("MISSION_BLOCKED", {
                 "mission_id": mission.id, 
-                "error": "I encountered an obstacle during execution and need your guidance."
+                "error": "I hit a blocker on the background work. Let's discuss how you want to proceed."
             })
             
     def _generate_plan(self, mission: Mission) -> TaskGraph:

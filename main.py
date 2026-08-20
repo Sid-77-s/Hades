@@ -66,6 +66,7 @@ class ChatResponse(BaseModel):
     intent: Optional[str] = None
     is_error: bool = False
     developer_error: Optional[Dict[str, Any]] = None
+    audio_base64: Optional[str] = None
 
 @app.get("/api/events")
 async def events_endpoint(request: Request):
@@ -103,11 +104,11 @@ async def chat(request: ChatRequest):
         )
         
         # Trigger offline TTS speech if enabled
-        voice_manager.speak(response_text)
+        audio_b64 = voice_manager.get_audio_base64(response_text)
         
-        # If mission locked, start ExecutionBrain in background
-        if updated_mission.status == MissionStatus.LOCKED and session.mission.status != MissionStatus.LOCKED:
-            print("[main] Mission locked! Starting execution brain.")
+        # If mission authorized, start ExecutionBrain in background
+        if updated_mission.status == MissionStatus.AUTHORIZED_EXECUTION and session.mission.status != MissionStatus.AUTHORIZED_EXECUTION:
+            print("[main] Mission authorized! Starting execution brain.")
             asyncio.create_task(execution_brain.process_mission(updated_mission))
             
         session.mission = updated_mission
@@ -120,7 +121,8 @@ async def chat(request: ChatRequest):
             mission_status=updated_mission.status.value,
             action=action_name,
             intent=intent_name,
-            is_error=False
+            is_error=False,
+            audio_base64=audio_b64
         )
     except Exception as e:
         print(f"[HADES Backend Error] {e}")
@@ -170,8 +172,8 @@ async def update_voice_settings(data: dict):
 @app.post("/api/voice/test")
 async def test_voice(data: dict):
     text = data.get("text", "Voice test. Hades audio synthesis operational.")
-    voice_manager.speak(text)
-    return {"status": "ok"}
+    audio_b64 = voice_manager.get_audio_base64(text)
+    return {"status": "ok", "audio_base64": audio_b64}
 
 # Skills & System Status
 @app.get("/api/config/status")

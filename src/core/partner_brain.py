@@ -66,48 +66,70 @@ Keep it concise, smart, and helpful.
         Main loop for the Partner Brain.
         Returns updated mission, Hades' text response, decision, and classified intent.
         """
-        if mission.status == MissionStatus.LOCKED:
-            return mission, "I'm currently focused on the active mission in the background. What's on your mind?", None, None
-
         # 1. Classify Intent
         try:
             classification = self.intent_classifier.classify(conversation, user_message)
             intent = classification.intent
             print(f"[HADES] Intent Classified: {intent.value} (Reason: {classification.reasoning})")
         except Exception as e:
-            print(f"[HADES] Intent classification failed: {e}. Defaulting to CASUAL_CONVERSATION.")
-            intent = ConversationIntent.CASUAL_CONVERSATION
+            print(f"[HADES] Intent classification failed: {e}. Defaulting to CASUAL.")
+            intent = ConversationIntent.CASUAL
 
         # 2. Add user message to conversation
         conversation.add_message(Role.USER, user_message, intent=intent)
 
-        # 3. Route based on intent
-        if intent in [ConversationIntent.CASUAL_CONVERSATION, ConversationIntent.QUICK_INFORMATION, ConversationIntent.KNOWLEDGE_QUESTION, ConversationIntent.FOLLOW_UP]:
+        # 3. If a background mission is running and this is just casual/simple, just answer it without touching the mission
+        if mission.status in [MissionStatus.AUTHORIZED_EXECUTION, MissionStatus.BACKGROUND_WORK] and intent in [ConversationIntent.CASUAL, ConversationIntent.SIMPLE_REQUEST]:
             response_text = self._generate_casual_response(conversation, user_message)
             conversation.add_message(Role.HADES, response_text, intent=intent)
             return mission, response_text, None, intent
 
-        elif intent == ConversationIntent.RESEARCH_REQUIRED:
-            response_text = "I'll research that and put together the details. Give me a moment."
+        # 4. Route based on intent
+        if intent in [ConversationIntent.CASUAL, ConversationIntent.SIMPLE_REQUEST]:
+            response_text = self._generate_casual_response(conversation, user_message)
             conversation.add_message(Role.HADES, response_text, intent=intent)
-            decision = ConversationalDecision(action=ConversationalAction.ACKNOWLEDGE, reasoning="Research triggered", response_text=response_text)
-            return mission, response_text, decision, intent
+            return mission, response_text, None, intent
 
-        else:
-            # MISSION_CANDIDATE, GOAL_EXPLORATION, EXECUTION_REQUEST
+        elif intent == ConversationIntent.SMALL_TASK:
+            # Check for ambiguity using a lightweight LLM call or just trust the extractor
             try:
                 mission.understanding = self.extractor.extract(conversation, mission.understanding)
                 is_ready = self.evaluator.evaluate(mission.understanding)
-                decision = self.decision_system.decide(conversation, mission.understanding, is_ready)
+                if is_ready:
+                    response_text = "Yep. Give me a second."
+                    decision = ConversationalDecision(action=ConversationalAction.ACKNOWLEDGE, reasoning="Clear small task", response_text=response_text)
+                    conversation.add_message(Role.HADES, response_text, intent=intent)
+                    mission.status = MissionStatus.AUTHORIZED_EXECUTION
+                    return mission, response_text, decision, intent
+                else:
+                    decision = self.decision_system.decide(conversation, mission.understanding, is_ready, intent)
+                    conversation.add_message(Role.HADES, decision.response_text, intent=intent)
+                    return mission, decision.response_text, decision, intent
+            except Exception as e:
+                response_text = "Yep. Give me a second."
+                conversation.add_message(Role.HADES, response_text, intent=intent)
+                mission.status = MissionStatus.AUTHORIZED_EXECUTION
+                return mission, response_text, None, intent
+
+        else:
+            # REAL_MISSION or MISSION_DISCOVERY
+            try:
+                mission.understanding = self.extractor.extract(conversation, mission.understanding)
+                # If MISSION_DISCOVERY, we treat it as ready to explore.
+                if intent == ConversationIntent.MISSION_DISCOVERY:
+                    is_ready = True
+                else:
+                    is_ready = self.evaluator.evaluate(mission.understanding)
+                
+                decision = self.decision_system.decide(conversation, mission.understanding, is_ready, intent)
                 conversation.add_message(Role.HADES, decision.response_text, intent=intent)
                 
-                if is_ready:
-                    mission.status = MissionStatus.LOCKED
+                if decision.action == ConversationalAction.ACKNOWLEDGE:
+                    mission.status = MissionStatus.AUTHORIZED_EXECUTION
                     
                 return mission, decision.response_text, decision, intent
             except Exception as e:
                 print(f"[HADES] Mission flow error: {e}")
-                # Fallback to casual response rather than crashing
                 response_text = self._generate_casual_response(conversation, user_message)
                 conversation.add_message(Role.HADES, response_text, intent=intent)
                 return mission, response_text, None, intent

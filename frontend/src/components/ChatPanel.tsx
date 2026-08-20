@@ -8,10 +8,20 @@ import { InfoIcon, ChevronDownIcon, ChevronUpIcon } from 'lucide-react';
 export function ChatPanel() {
   const { messages, hadesState } = useHades();
   const bottomRef = useRef<HTMLDivElement>(null);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
+  const isScrolledUp = useRef(false);
   const [expandedDetails, setExpandedDetails] = React.useState<Record<string, boolean>>({});
 
+  const handleScroll = () => {
+    if (!chatContainerRef.current) return;
+    const { scrollTop, scrollHeight, clientHeight } = chatContainerRef.current;
+    isScrolledUp.current = scrollHeight - scrollTop - clientHeight > 100;
+  };
+
   React.useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (!isScrolledUp.current) {
+      bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
   }, [messages, hadesState]);
 
   const toggleDetails = (id: string) => {
@@ -19,7 +29,11 @@ export function ChatPanel() {
   };
 
   return (
-    <div className="rounded-md border border-ion/20 bg-panel/70 px-5 py-4 backdrop-blur-sm h-full overflow-y-auto scroll-thin flex flex-col gap-6">
+    <div 
+      ref={chatContainerRef}
+      onScroll={handleScroll}
+      className="rounded-md border border-ion/20 bg-panel/70 px-5 py-4 backdrop-blur-sm h-full overflow-y-auto scroll-thin flex flex-col gap-6"
+    >
       {messages.length === 0 ? (
         <div className="flex-1 flex items-center justify-center text-slate-500 text-sm">
           No messages yet. Send a message to start communicating with Hades.

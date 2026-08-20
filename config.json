@@ -28,7 +28,8 @@
       ],
       "specialization": "Coding / Fast (Free Tier)",
       "enabled": true,
-      "env_key": "GEMINI_API_KEY"
+      "env_key": "GEMINI_API_KEY",
+      "last_status": "OPERATIONAL"
     },
     {
       "id": "groq-llama3-70b",
@@ -114,6 +115,44 @@
       "specialization": "Coding / Reasoning",
       "enabled": false,
       "env_key": "ANTHROPIC_API_KEY"
+    },
+    {
+      "provider": "local",
+      "model_name": "uncensored 2.1",
+      "display_name": "",
+      "specialization": "Reasoning / General",
+      "capabilities": [
+        "general",
+        "reasoning"
+      ],
+      "env_key": "OPENAI_API_KEY",
+      "id": "worker-9"
+    },
+    {
+      "provider": "local",
+      "model_name": "qwen2.5-coder:7b",
+      "display_name": "",
+      "specialization": "Reasoning / General",
+      "capabilities": [
+        "general",
+        "reasoning"
+      ],
+      "env_key": "OPENAI_API_KEY",
+      "id": "worker-10",
+      "last_status": "FAILED"
+    },
+    {
+      "provider": "local",
+      "model_name": "ollama/qwen2.5-coder:7b",
+      "display_name": "",
+      "specialization": "Reasoning / General",
+      "capabilities": [
+        "general",
+        "reasoning"
+      ],
+      "env_key": "OPENAI_API_KEY",
+      "id": "worker-11",
+      "last_status": "FAILED"
     }
   ]
 }

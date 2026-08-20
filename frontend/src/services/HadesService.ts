@@ -41,6 +41,7 @@ class HadesService {
   private eventSource: EventSource | null = null;
   private recognition: any = null;
   public isListening: boolean = false;
+  private audioElement: HTMLAudioElement | null = null;
 
   constructor() {
     this.sessionId = localStorage.getItem('hades_session_id') || null;
@@ -122,7 +123,7 @@ class HadesService {
     this.notify();
   }
 
-  public appendMessage(sender: 'user' | 'hades', text: string, imagePreview?: string, isError: boolean = false, devError: DeveloperError | null = null) {
+  public appendMessage(sender: 'user' | 'hades', text: string, imagePreview?: string, isError: boolean = false, devError: DeveloperError | null = null, audioBase64?: string) {
     this.messages.push({
       id: Math.random().toString(36).substring(7),
       sender,
@@ -134,13 +135,26 @@ class HadesService {
     });
 
     if (sender === 'hades') {
-      this.speakText(text);
+      if (audioBase64) {
+        this.playAudio(audioBase64);
+      } else {
+        this.speakText(text);
+      }
     }
     this.notify();
   }
 
   public async sendMessage(text: string, imageData?: string) {
     if ((!text.trim() && !imageData) || this.isProcessing) return;
+    
+    // Stop any currently playing audio
+    if (this.audioElement) {
+      this.audioElement.pause();
+      this.audioElement = null;
+    }
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
     
     this.isProcessing = true;
     this.appendMessage('user', text, imageData);
@@ -164,7 +178,7 @@ class HadesService {
         localStorage.setItem('hades_session_id', this.sessionId);
       }
 
-      this.appendMessage('hades', data.response, undefined, data.is_error, data.developer_error);
+      this.appendMessage('hades', data.response, undefined, data.is_error, data.developer_error, data.audio_base64);
       
       if (data.mission_status !== "LOCKED" && data.mission_status !== "EXECUTING") {
         this.hadesState = 'idle';
@@ -207,6 +221,18 @@ class HadesService {
     }
     this.notify();
     return this.isListening;
+  }
+
+  private playAudio(base64: string) {
+    try {
+      if (this.audioElement) {
+        this.audioElement.pause();
+      }
+      this.audioElement = new Audio(base64);
+      this.audioElement.play().catch(e => console.error("Audio play error", e));
+    } catch (e) {
+      console.error("Failed to play base64 audio", e);
+    }
   }
 
   private speakText(text: string) {

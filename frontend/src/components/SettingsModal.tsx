@@ -227,17 +227,29 @@ export function SettingsModal({ isOpen, onClose }: { isOpen: boolean; onClose: (
 
                           <div className="flex items-center gap-3">
                             <div className="text-right">
-                              {w.configured ? (
+                              {w.status === 'OPERATIONAL' ? (
                                 <span className="flex items-center gap-1 text-online text-xs font-medium">
-                                  <CheckCircleIcon size={13} /> Available
+                                  <CheckCircleIcon size={13} /> Operational
+                                </span>
+                              ) : w.status === 'CONFIGURED' ? (
+                                <span className="flex items-center gap-1 text-online text-xs font-medium">
+                                  <CheckCircleIcon size={13} /> Configured
+                                </span>
+                              ) : w.status === 'DEPRECATED' ? (
+                                <span className="flex items-center gap-1 text-alert text-xs font-medium">
+                                  <AlertCircleIcon size={13} /> Deprecated
+                                </span>
+                              ) : w.status === 'FAILED' ? (
+                                <span className="flex items-center gap-1 text-alert text-xs font-medium">
+                                  <AlertCircleIcon size={13} /> Failed
                                 </span>
                               ) : (
                                 <span className="flex items-center gap-1 text-slate-500 text-xs font-medium">
-                                  <AlertCircleIcon size={13} /> Key in .env
+                                  <AlertCircleIcon size={13} /> Unconfigured
                                 </span>
                               )}
                               {testResult[w.id] && (
-                                <p className={`text-[10px] mt-1 ${testResult[w.id] === 'Operational' ? 'text-online' : 'text-yellow-400'}`}>
+                                <p className={`text-[10px] mt-1 ${testResult[w.id] === 'Operational' ? 'text-online' : 'text-alert'}`}>
                                   {testResult[w.id]}
                                 </p>
                               )}

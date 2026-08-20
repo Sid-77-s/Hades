@@ -128,11 +128,15 @@ class WorkerManager:
     def get_workers_status(self) -> List[Dict[str, Any]]:
         result = []
         for w in self.workers:
-            # Special check for local Ollama
             if w.get("provider") == "ollama":
-                has_key = True  # Ollama runs locally without key
+                has_key = True
             else:
                 has_key = bool(os.getenv(w.get("env_key", ""), ""))
+            
+            # Use cached status if available, else default based on configuration
+            status = w.get("last_status")
+            if not status:
+                status = "CONFIGURED" if has_key else "NOT_CONFIGURED"
             
             result.append({
                 "id": w["id"],
@@ -143,13 +147,15 @@ class WorkerManager:
                 "specialization": w.get("specialization", "General"),
                 "enabled": w.get("enabled", True),
                 "available": has_key,
-                "configured": has_key
+                "configured": has_key,
+                "status": status
             })
         return result
 
     def add_worker(self, worker_data: Dict[str, Any]):
         worker_id = worker_data.get("id") or f"worker-{len(self.workers) + 1}"
         worker_data["id"] = worker_id
+        worker_data["last_status"] = "CONFIGURED"
         self.workers.append(worker_data)
         self.save_workers()
         return worker_data
@@ -168,10 +174,11 @@ class WorkerManager:
         return True
 
     def select_worker(self, required_capability: str = "general") -> Optional[str]:
-        """Automatically select the best available and enabled worker for the capability."""
         candidates = []
         for w in self.workers:
             if not w.get("enabled", True):
+                continue
+            if w.get("last_status") in ["FAILED", "DEPRECATED"]:
                 continue
             has_key = bool(os.getenv(w.get("env_key", ""), ""))
             if not has_key and w.get("provider") != "ollama":
@@ -184,18 +191,32 @@ class WorkerManager:
         
         for w in self.workers:
             if os.getenv(w.get("env_key", ""), "") or w.get("provider") == "ollama":
-                return w["model_name"]
+                if w.get("last_status") not in ["FAILED", "DEPRECATED"]:
+                    return w["model_name"]
         return "gemini/gemini-flash-latest"
 
     def test_worker(self, model_name: str) -> Dict[str, Any]:
+        target_worker = next((w for w in self.workers if w["model_name"] == model_name), None)
         try:
             res = litellm.completion(
                 model=model_name,
                 messages=[{"role": "user", "content": "Ping test"}],
-                max_tokens=10
+                max_tokens=10,
+                timeout=10
             )
-            return {"success": True, "message": "Worker connection verified."}
+            if target_worker:
+                target_worker["last_status"] = "OPERATIONAL"
+                self.save_workers()
+            return {"success": True, "message": "Worker connection verified.", "status": "OPERATIONAL"}
+        except litellm.NotFoundError:
+            if target_worker:
+                target_worker["last_status"] = "DEPRECATED"
+                self.save_workers()
+            return {"success": False, "error": "Model not found or deprecated.", "status": "DEPRECATED"}
         except Exception as e:
-            return {"success": False, "error": str(e)}
+            if target_worker:
+                target_worker["last_status"] = "FAILED"
+                self.save_workers()
+            return {"success": False, "error": str(e), "status": "FAILED"}
 
 worker_manager = WorkerManager()

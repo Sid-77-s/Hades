@@ -18,14 +18,11 @@ class IntentClassifier:
 Classify the user's intent based on their latest message and recent conversation history.
 
 Available Intents:
-- CASUAL_CONVERSATION: Greetings, small talk, chit chat, checking in, discussing philosophy, casual banter.
-- QUICK_INFORMATION: Simple factual questions, weather, time, basic definitions, quick math.
-- KNOWLEDGE_QUESTION: Explaining a concept, asking for opinions or advice.
-- GOAL_EXPLORATION: Brainstorming, discussing project ideas, high level requests that need discussion.
-- RESEARCH_REQUIRED: Explicitly asking Hades to search the web, lookup live data, or gather intelligence.
-- MISSION_CANDIDATE: Complex multi-step task (e.g., build presentation, write and execute code, analyze datasets, automate workflow).
-- EXECUTION_REQUEST: Explicit command to execute tools, run terminal scripts, or modify files.
-- FOLLOW_UP: Clarifications or answers to Hades' previous questions.
+- CASUAL: Greetings, small talk, chit chat, philosophy, banter. Do NOT classify as a mission.
+- SIMPLE_REQUEST: Factual questions, weather, time, basic definitions, quick math. No action required, just answering.
+- SMALL_TASK: Small actionable tasks (e.g., "Create a folder", "Make this shorter", "Find the OpenAI docs"). Handled efficiently without long alignment.
+- REAL_MISSION: Substantial tasks where misunderstanding wastes time/resources (e.g., "Research AI OS market", "Build a website"). Requires mutual alignment first.
+- MISSION_DISCOVERY: The user wants something but doesn't know exactly what, giving you permission to explore (e.g., "I don't know what I need, just help me understand X", "Explore this").
 """
         messages = [{"role": "system", "content": system_prompt}]
         for msg in conversation.messages[-4:]:
@@ -49,8 +46,10 @@ Available Intents:
         except Exception as e:
             # Fallback
             lower = current_message.lower()
-            if any(g in lower for g in ["hi", "hello", "hey", "hades", "what's up", "how are you", "who are you"]):
-                return IntentClassification(intent=ConversationIntent.CASUAL_CONVERSATION, reasoning="Greeting", confidence=0.9)
-            if "research" in lower or "search" in lower or "find out" in lower:
-                return IntentClassification(intent=ConversationIntent.RESEARCH_REQUIRED, reasoning="Research keyword", confidence=0.8)
-            return IntentClassification(intent=ConversationIntent.CASUAL_CONVERSATION, reasoning="Default fallback", confidence=0.5)
+            if any(g in lower for g in ["hi", "hello", "hey", "hades", "what's up"]):
+                return IntentClassification(intent=ConversationIntent.CASUAL, reasoning="Greeting", confidence=0.9)
+            if "research" in lower or "build" in lower or "plan" in lower or "analyze" in lower:
+                return IntentClassification(intent=ConversationIntent.REAL_MISSION, reasoning="Mission keyword", confidence=0.7)
+            if "explore" in lower or "figure it out" in lower:
+                return IntentClassification(intent=ConversationIntent.MISSION_DISCOVERY, reasoning="Exploration keyword", confidence=0.8)
+            return IntentClassification(intent=ConversationIntent.CASUAL, reasoning="Default fallback", confidence=0.5)
