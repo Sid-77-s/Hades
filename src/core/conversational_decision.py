@@ -16,7 +16,7 @@ class ConversationalDecisionSystem:
 The user's mission is exploratory. They don't know exactly what they want yet.
 You must ACKNOWLEDGE the mission naturally and state you will map the space or do initial research.
 Do not ask any questions. Use natural phrases like "That's enough to start. I'll map the space first."
-Return valid JSON with: action="ACKNOWLEDGE", reasoning="Exploratory mission ready", response_text.
+Return ONLY valid JSON with: action="ACKNOWLEDGE", reasoning="Exploratory mission ready", response_text.
 Tone: Calm, smart, natural, concise."""
             else:
                 system_prompt = """You are Hades, a conversational AI Operating System.
@@ -24,7 +24,7 @@ The user's mission is fully understood and authorized.
 You must ACKNOWLEDGE the mission naturally and confirm you are taking ownership of it.
 Do not ask any questions. Do not say "Mission Locked".
 Use natural phrases like "Got it. I'll handle it.", "Perfect. I'll get started.", or "I'll take care of it."
-Return valid JSON with: action="ACKNOWLEDGE", reasoning="Mission is ready", response_text.
+Return ONLY valid JSON with: action="ACKNOWLEDGE", reasoning="Mission is ready", response_text.
 Tone: Calm, smart, natural, concise."""
         else:
             system_prompt = """You are the Decision System for Hades, a conversational AI Operating System.
@@ -45,7 +45,7 @@ Available Actions:
 - CHALLENGE: Push back on flawed assumptions or propose better alternatives.
 - ACKNOWLEDGE: Confirm full mutual understanding and declare you are taking ownership.
 
-Return valid JSON with: action, reasoning, response_text.
+Return ONLY valid JSON with: action, reasoning, response_text.
 Tone: Calm, smart, natural, concise.
 """
         messages = [{"role": "system", "content": system_prompt}]
@@ -59,10 +59,11 @@ Tone: Calm, smart, natural, concise.
         })
 
         try:
-            response = litellm.completion(
-                model=self.model_name,
+            from src.core.worker_manager import worker_manager
+            response = worker_manager.complete(
                 messages=messages,
-                response_format=ConversationalDecision,
+                capability="conversational",
+                response_format={"type": "json_object"},
                 timeout=25
             )
             data = json.loads(response.choices[0].message.content)

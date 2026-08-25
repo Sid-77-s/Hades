@@ -19,9 +19,10 @@ export function ChatPanel() {
   };
 
   React.useEffect(() => {
-    if (!isScrolledUp.current) {
+    // Slight delay ensures the DOM has fully rendered the new content before scrolling
+    setTimeout(() => {
       bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }
+    }, 50);
   }, [messages, hadesState]);
 
   const toggleDetails = (id: string) => {

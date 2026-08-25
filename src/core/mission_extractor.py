@@ -16,8 +16,10 @@ Your job is to read the conversation and extract the core mission details into s
 - success_criteria: What defines success.
 - context: Domain background, user preferences.
 - constraints: Limitations, timelines, or restrictions.
+- mutual_understanding_reached: Set to true ONLY if the objective and desired outcome are clear enough to begin execution without further clarification from the user.
 
-Return valid JSON adhering to MissionUnderstanding schema.
+Return ONLY valid JSON matching the exact structure of the provided current understanding state.
+Each field MUST be a nested object with 'value' (string), 'source' (string enum), and 'criticality' (string enum).
 """
         messages = [{"role": "system", "content": system_prompt}]
         for msg in conversation.messages[-6:]:
@@ -30,10 +32,11 @@ Return valid JSON adhering to MissionUnderstanding schema.
         })
 
         try:
-            response = litellm.completion(
-                model=self.model_name,
+            from src.core.worker_manager import worker_manager
+            response = worker_manager.complete(
                 messages=messages,
-                response_format=MissionUnderstanding,
+                capability="conversational",
+                response_format={"type": "json_object"},
                 timeout=25
             )
             data = json.loads(response.choices[0].message.content)

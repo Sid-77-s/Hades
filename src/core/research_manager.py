@@ -93,10 +93,9 @@ Do NOT invent facts. Do NOT fabricate companies or products. State uncertainty w
                 
                 messages.append({"role": "user", "content": f"Query: {task.query}\nSearch Results:\n{raw_snippets}\n\nPlease synthesize a response based ONLY on these sources."})
                 
-                active_model = worker_manager.select_worker("research") or "gemini/gemini-flash-latest"
-                response = litellm.completion(
-                    model=active_model,
+                response = worker_manager.complete(
                     messages=messages,
+                    capability="research",
                     timeout=20
                 )
                 

@@ -35,10 +35,11 @@ Available Intents:
         })
 
         try:
-            response = litellm.completion(
-                model=self.model_name,
+            from src.core.worker_manager import worker_manager
+            response = worker_manager.complete(
                 messages=messages,
-                response_format=IntentClassification,
+                capability="conversational",
+                response_format={"type": "json_object"},
                 timeout=20
             )
             data = json.loads(response.choices[0].message.content)

@@ -8,3 +8,7 @@ node_modules/
 dist/
 ffmpeg.exe
 HADES WALKTHROUGH.mp4
+memory.json
+output/
+
+.env

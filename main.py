@@ -97,17 +97,29 @@ async def chat(request: ChatRequest):
         user_message += " [Attached an image for visual analysis]"
         
     try:
-        updated_mission, response_text, decision, intent = brain.process_message(
-            session.mission, 
-            session.conversation, 
-            user_message
-        )
+
+        if "FORCE_EXECUTE" in user_message:
+            session.mission.status = MissionStatus.AUTHORIZED_EXECUTION
+            session.mission.understanding.objective.value = user_message.replace("FORCE_EXECUTE", "").strip()
+            updated_mission = session.mission
+            response_text = "Forcing execution for the task."
+            from src.core.conversational_decision import ConversationalAction, ConversationalDecision
+            from src.models.conversation import ConversationIntent
+            decision = ConversationalDecision(action=ConversationalAction.ACKNOWLEDGE, rationale="")
+            intent = ConversationIntent.REAL_MISSION
+        else:
+            updated_mission, response_text, decision, intent = brain.process_message(
+                session.mission, 
+                session.conversation, 
+                user_message
+            )
+
         
         # Trigger offline TTS speech if enabled
         audio_b64 = voice_manager.get_audio_base64(response_text)
         
         # If mission authorized, start ExecutionBrain in background
-        if updated_mission.status == MissionStatus.AUTHORIZED_EXECUTION and session.mission.status != MissionStatus.AUTHORIZED_EXECUTION:
+        if updated_mission.status == MissionStatus.AUTHORIZED_EXECUTION:
             print("[main] Mission authorized! Starting execution brain.")
             asyncio.create_task(execution_brain.process_mission(updated_mission))
             
@@ -128,12 +140,18 @@ async def chat(request: ChatRequest):
         print(f"[HADES Backend Error] {e}")
         traceback.print_exc()
         
-        natural_response = "I encountered an issue processing that request. Let me know how you'd like to proceed."
+        error_msg = str(e)
+        # Sanitize common API key patterns if present
+        import re
+        error_msg = re.sub(r'(api_key=[\'"]?)[a-zA-Z0-9_\-]+([\'"]?)', r'\1***\2', error_msg)
+        
+        natural_response = "System Error: The conversational model integration encountered a failure. Please check your API configuration or system logs."
         return ChatResponse(
             response=natural_response,
             session_id=session_id,
             mission_status=session.mission.status.value,
-            is_error=False
+            is_error=True,
+            developer_error={"detail": error_msg}
         )
 
 # Worker Management Endpoints

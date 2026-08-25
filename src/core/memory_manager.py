@@ -42,7 +42,7 @@ class MemoryManager:
             
     def save_memory(self):
         with open(MEMORY_FILE, 'w') as f:
-            f.write(self.memory.json(indent=2))
+            f.write(self.memory.model_dump_json(indent=2))
 
     def add_mission_to_history(self, mission_id: str, objective: str, status: str, summary: str, outputs: List[str]):
         item = MissionHistoryItem(

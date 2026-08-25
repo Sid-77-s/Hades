@@ -1,6 +1,20 @@
 {
   "workers": [
     {
+      "id": "gemini-2.5-flash-lite",
+      "provider": "google",
+      "model_name": "gemini/gemini-2.5-flash-lite",
+      "display_name": "Gemini 2.5 Flash Lite",
+      "capabilities": [
+        "general",
+        "fast",
+        "conversational"
+      ],
+      "specialization": "Conversational Partner Brain",
+      "enabled": true,
+      "env_key": "GEMINI_API_KEY"
+    },
+    {
       "id": "gemini-flash",
       "provider": "google",
       "model_name": "gemini/gemini-flash-latest",
@@ -28,8 +42,7 @@
       ],
       "specialization": "Coding / Fast (Free Tier)",
       "enabled": true,
-      "env_key": "GEMINI_API_KEY",
-      "last_status": "OPERATIONAL"
+      "env_key": "GEMINI_API_KEY"
     },
     {
       "id": "groq-llama3-70b",
@@ -67,7 +80,9 @@
       "display_name": "Llama 3.2 (OpenRouter Free)",
       "capabilities": [
         "general",
-        "fast"
+        "fast",
+        "reasoning",
+        "coding"
       ],
       "specialization": "100% Free Public Endpoint",
       "enabled": true,

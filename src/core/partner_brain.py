@@ -12,7 +12,7 @@ from src.core.worker_manager import worker_manager
 
 class PartnerBrain:
     def __init__(self, model_name: Optional[str] = None):
-        self.model_name = model_name or worker_manager.select_worker("fast") or "gemini/gemini-flash-latest"
+        self.model_name = model_name or "gemini/gemini-2.5-flash-lite"
         self.intent_classifier = IntentClassifier(self.model_name)
         self.extractor = MissionExtractor(self.model_name)
         self.evaluator = UnderstandingEvaluator()
@@ -25,21 +25,12 @@ class PartnerBrain:
         ]
 
     def _call_llm_with_fallback(self, messages: List[dict]) -> str:
-        models_to_try = [self.model_name] + [m for m in self.fallback_models if m != self.model_name]
-        last_error = None
-        for m in models_to_try:
-            try:
-                response = litellm.completion(
-                    model=m,
-                    messages=messages,
-                    timeout=30
-                )
-                return response.choices[0].message.content
-            except Exception as e:
-                print(f"[PartnerBrain] Model {m} failed: {e}")
-                last_error = e
-                continue
-        raise last_error or Exception("All available worker models failed to respond.")
+        try:
+            res = worker_manager.complete(messages=messages, capability="conversational", timeout=30)
+            return res.choices[0].message.content
+        except Exception as e:
+            print(f"[PartnerBrain] All worker models failed: {e}")
+            raise e
 
     def _generate_casual_response(self, conversation: Conversation, user_message: str) -> str:
         system_prompt = f"""You are Hades, a highly capable conversational AI OS. 

@@ -16,7 +16,7 @@ class VoiceManager:
     def __init__(self):
         if self._initialized:
             return
-        self.enabled = True
+        self.enabled = False
         self.rate = 180  # Speed (words per minute)
         self.volume = 0.9  # Volume (0.0 to 1.0)
         self.voice_id = None
@@ -65,14 +65,14 @@ class VoiceManager:
         model_path = os.path.join(model_dir, "kokoro-v1.0.onnx")
         voices_path = os.path.join(model_dir, "voices-v1.0.bin")
 
-        if not os.path.exists(model_path):
-            print("[VoiceManager] Downloading Kokoro ONNX model (this may take a minute)...")
-            urllib.request.urlretrieve("https://github.com/thewh1teagle/kokoro-onnx/releases/download/model/kokoro-v1.0.onnx", model_path)
-        if not os.path.exists(voices_path):
-            print("[VoiceManager] Downloading Kokoro voices...")
-            urllib.request.urlretrieve("https://github.com/thewh1teagle/kokoro-onnx/releases/download/model/voices-v1.0.bin", voices_path)
-
         try:
+            if not os.path.exists(model_path):
+                print("[VoiceManager] Downloading Kokoro ONNX model (this may take a minute)...")
+                urllib.request.urlretrieve("https://github.com/thewh1teagle/kokoro-onnx/releases/download/v0.1.0/kokoro-v1.0.onnx", model_path)
+            if not os.path.exists(voices_path):
+                print("[VoiceManager] Downloading Kokoro voices...")
+                urllib.request.urlretrieve("https://github.com/thewh1teagle/kokoro-onnx/releases/download/v0.1.0/voices.bin", voices_path)
+
             # We initialize Kokoro instance lazily
             if not hasattr(self, "_kokoro"):
                 self._kokoro = Kokoro(model_path, voices_path)

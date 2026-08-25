@@ -1,0 +1,212 @@
+Slide ppt/slides/slide1.xml:
+HADES
+THE AI PARTNER FOR LINUX
+From asking an AI for answers → to giving it outcomes to own.
+Open Innovation — Linux Based
+AI • AUTOMATION • PRODUCTIVITY
+H
+PARTNER  •  EXECUTOR  •  WORKERS
+HADES  /  OPEN INNOVATION — LINUX BASED
+01
+
+================
+
+Slide ppt/slides/slide2.xml:
+01 / PROJECT OVERVIEW
+Problem Statement
+Today's AI assistants are optimized for conversation. Real work still gets pushed back onto the user.
+THE GAP
+• AI can explain what to do, but often stops before the actual work.
+• Users must repeatedly plan, execute, verify, and report progress.
+• Complex tasks cross multiple tools: files, shell, browser, research, documents.
+• Users need an assistant that can act with context — without turning every action into a permission dialog.
+WHAT HADES CHANGES
+Give HADES an outcome.
+HADES decides how to get there, delegates work to specialized workers, uses Linux capabilities, verifies the result, and returns with the outcome.
+LESS SUPERVISION
+MORE EXECUTION
+HADES  /  OPEN INNOVATION — LINUX BASED
+02
+
+================
+
+Slide ppt/slides/slide3.xml:
+02 / OBJECTIVE
+Objective
+Build an AI application that turns natural-language intent into reliable, end-to-end work on Linux.
+CORE OBJECTIVE
+Understand → Plan → Delegate → Execute → Verify → Return
+01
+UNDERSTAND
+Interpret intent
+02
+PLAN
+Choose the route
+03
+DELEGATE
+Use workers
+04
+EXECUTE
+Act on Linux
+05
+VERIFY
+Check outcome
+06
+RETURN
+Report back
+The user communicates the goal. HADES owns the workflow.
+HADES  /  OPEN INNOVATION — LINUX BASED
+03
+
+================
+
+Slide ppt/slides/slide4.xml:
+03 / DESCRIPTION
+What is HADES?
+A partner-style AI application designed to operate across Linux tools instead of merely chatting about them.
+YOU
+natural language
+PARTNER BRAIN
+conversation • intent • context
+EXECUTION BRAIN
+mission • planning • orchestration
+WORKER
+specialized execution
+WORKER
+specialized execution
+WORKER
+specialized execution
+WORKER
+specialized execution
+Linux capabilities: Bash • Filesystem • Processes • Browser • Research • Creation
+HADES  /  OPEN INNOVATION — LINUX BASED
+04
+
+================
+
+Slide ppt/slides/slide5.xml:
+04 / NOVELTY
+Novelty
+The differentiator is not another chatbot. It is the relationship model + execution architecture.
+PARTNER, NOT PROMPT BOX
+HADES is designed to behave like an equal working partner: understand the goal, take ownership, and come back with the result.
+●
+designed around user intent
+WORKER-BASED EXECUTION
+Specialized workers can perform focused tasks instead of forcing one model to do everything.
+●
+designed around user intent
+OUTCOME-DRIVEN INTERACTION
+The user describes what they want achieved. Internal execution detail stays internal unless the user chooses to inspect it.
+●
+designed around user intent
+HADES  /  OPEN INNOVATION — LINUX BASED
+05
+
+================
+
+Slide ppt/slides/slide6.xml:
+05 / INNOVATION
+Innovation
+A practical AI execution layer at the application level — built to work with Linux rather than replace it.
+INNOVATION STACK
+Natural language
+Human intent becomes an executable objective.
+Autonomous orchestration
+Execution Brain coordinates multi-step work.
+Worker model
+Different models/agents can be assigned to focused jobs.
+Linux-native tools
+Shell, filesystem, processes and browser capabilities.
+Verification
+Results are intended to be checked before reporting completion.
+WHY IT MATTERS
+AI becomes a collaborator in the operating environment.
+Instead of asking:
+“How do I clean this workspace?”
+HADES is designed around:
+“Clean it up safely and tell me when you're done.”
+HADES  /  OPEN INNOVATION — LINUX BASED
+06
+
+================
+
+Slide ppt/slides/slide7.xml:
+06 / DATA
+Data Set Used
+No custom training dataset is required for the current application prototype.
+CURRENT APPROACH
+NONE — NO PROPRIETARY TRAINING DATASET
+• HADES uses foundation models through configurable model providers.
+• Task execution can use live system state and tool outputs rather than a pre-collected training corpus.
+• Research capabilities can retrieve current web information when enabled.
+• User context and memory are used as application state, not as a training dataset.
+Future versions could incorporate domain-specific evaluation datasets and task traces to improve reliability.
+HADES  /  OPEN INNOVATION — LINUX BASED
+07
+
+================
+
+Slide ppt/slides/slide8.xml:
+07 / LINUX INTEGRATION
+Why Linux?
+The hackathon target is an AI-powered application operating at the Linux application layer.
+CONTROL
+Direct access to the shell, filesystem and processes gives HADES a real execution environment.
+COMPOSABILITY
+Linux tools can be chained into workflows without forcing every capability into one monolithic AI.
+OPEN ENVIRONMENT
+The application can work with the developer's existing tools, files and workflows.
+Windows + WSL can be used as the development/test environment; the target experience is HADES running as a Linux application.
+HADES  /  OPEN INNOVATION — LINUX BASED
+08
+
+================
+
+Slide ppt/slides/slide9.xml:
+08 / DEMO
+What the Demo Will Prove
+One complete mission — not a slideshow of disconnected features.
+END-TO-END DEMONSTRATION
+01
+USER
+Gives HADES a real outcome
+02
+HADES
+Understands intent and commits to the task
+03
+MISSION
+Breaks the work into executable steps
+04
+WORKERS
+Specialized workers perform the work
+05
+LINUX
+Files / shell / browser / research are used
+06
+RESULT
+HADES verifies and returns with a clean outcome
+The point: the user delegates an outcome, not a sequence of commands.
+HADES  /  OPEN INNOVATION — LINUX BASED
+09
+
+================
+
+Slide ppt/slides/slide10.xml:
+09 / CLOSING
+The Vision
+HADES is intended to make the computer feel less like a collection of applications and more like a capable partner.
+“Tell it what needs to happen.
+Let it handle the work.”
+PARTNER
+EXECUTOR
+WORKERS
+NEXT
+• Harden the Linux execution loop
+• Strengthen verification and recovery
+• Expand worker capabilities
+• Refine the partner-style UX and voice interaction
+HADES
+AI that works with you — not just talks to you.
+HADES  /  OPEN INNOVATION — LINUX BASED
+10

@@ -1,0 +1,15 @@
+graph TD
+    A[Browser Frontend] -->|POST /api/chat| B(FastAPI Router)
+    B --> C(PartnerBrain)
+    C --> D(IntentClassifier)
+    C --> E(MissionExtractor)
+    C --> F(ConversationalDecisionSystem)
+    F -->|If Authorized| G[Mission Lock]
+    G --> H(ExecutionBrain)
+    H --> I(TaskGraph - Hardcoded 1 Task)
+    I --> J(WorkerManager / LLM)
+    J --> K(TerminalSkill)
+    K --> L[Host OS Subprocess]
+    L --> M(ReviewEngine)
+    M --> N(MemoryManager - JSON)
+    N -->|SSE /api/events| A

@@ -7,6 +7,16 @@ CONFIG_FILE = "config.json"
 
 DEFAULT_WORKERS = [
     {
+        "id": "gemini-2.5-flash-lite",
+        "provider": "google",
+        "model_name": "gemini/gemini-2.5-flash-lite",
+        "display_name": "Gemini 2.5 Flash Lite",
+        "capabilities": ["general", "fast", "conversational"],
+        "specialization": "Conversational Partner Brain",
+        "enabled": True,
+        "env_key": "GEMINI_API_KEY"
+    },
+    {
         "id": "gemini-flash",
         "provider": "google",
         "model_name": "gemini/gemini-flash-latest",
@@ -51,7 +61,7 @@ DEFAULT_WORKERS = [
         "provider": "openrouter",
         "model_name": "openrouter/meta-llama/llama-3.2-3b-instruct:free",
         "display_name": "Llama 3.2 (OpenRouter Free)",
-        "capabilities": ["general", "fast"],
+        "capabilities": ["general", "fast", "reasoning", "coding"],
         "specialization": "100% Free Public Endpoint",
         "enabled": True,
         "env_key": "OPENROUTER_API_KEY"
@@ -173,7 +183,7 @@ class WorkerManager:
         self.save_workers()
         return True
 
-    def select_worker(self, required_capability: str = "general") -> Optional[str]:
+    def get_candidate_models(self, required_capability: str = "general") -> List[str]:
         candidates = []
         for w in self.workers:
             if not w.get("enabled", True):
@@ -186,14 +196,40 @@ class WorkerManager:
             if required_capability in w.get("capabilities", ["general"]) or required_capability == "general":
                 candidates.append(w["model_name"])
 
-        if candidates:
-            return candidates[0]
-        
-        for w in self.workers:
-            if os.getenv(w.get("env_key", ""), "") or w.get("provider") == "ollama":
-                if w.get("last_status") not in ["FAILED", "DEPRECATED"]:
-                    return w["model_name"]
-        return "gemini/gemini-flash-latest"
+        # Add fallback models unconditionally at the end to ensure we don't fail if all primary models crash
+        fallbacks = [
+            "openrouter/meta-llama/llama-3.2-3b-instruct:free",
+            "gemini/gemini-flash-latest",
+            "gemini/gemini-1.5-flash-latest",
+            "gemini/gemini-1.5-pro-latest"
+        ]
+        for f in fallbacks:
+            if f not in candidates:
+                candidates.append(f)
+                
+        return candidates
+
+    def select_worker(self, required_capability: str = "general") -> Optional[str]:
+        candidates = self.get_candidate_models(required_capability)
+        return candidates[0] if candidates else "openrouter/meta-llama/llama-3.2-3b-instruct:free"
+
+    def complete(self, messages: List[Dict[str, Any]], capability: str = "general", timeout: int = 30, **kwargs) -> Any:
+        models = self.get_candidate_models(capability)
+        last_error = None
+        for m in models:
+            try:
+                res = litellm.completion(
+                    model=m,
+                    messages=messages,
+                    timeout=timeout,
+                    **kwargs
+                )
+                return res
+            except Exception as e:
+                print(f"[WorkerManager] Model {m} failed: {e}. Trying next available worker...")
+                last_error = e
+                continue
+        raise last_error or Exception("No worker models could complete the request.")
 
     def test_worker(self, model_name: str) -> Dict[str, Any]:
         target_worker = next((w for w in self.workers if w["model_name"] == model_name), None)

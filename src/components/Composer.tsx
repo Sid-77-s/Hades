@@ -5,14 +5,21 @@ import { HadesMark } from './HadesMark';
 const utility =
 'flex h-8 w-8 items-center justify-center rounded text-muted transition-colors duration-150 ease-out hover:text-ion focus:outline-none focus-visible:ring-1 focus-visible:ring-ion';
 
-export function Composer() {
+interface ComposerProps {
+  onSendMessage?: (text: string) => void;
+}
+
+export function Composer({ onSendMessage }: ComposerProps) {
   const [value, setValue] = useState('');
 
   return (
     <form
       onSubmit={(event) => {
         event.preventDefault();
-        setValue('');
+        if (value.trim() && onSendMessage) {
+          onSendMessage(value.trim());
+          setValue('');
+        }
       }}
       className="flex items-center gap-3 rounded-full border border-ion/40 bg-panel/80 px-3 py-2.5 shadow-glow backdrop-blur-sm focus-within:border-ion/70">
       
@@ -46,11 +53,12 @@ export function Composer() {
 
       <button
         type="submit"
+        disabled={!value.trim()}
         aria-label="Send message"
-        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-signal text-white transition-colors duration-150 ease-out hover:bg-ion hover:text-void focus:outline-none focus-visible:ring-2 focus-visible:ring-ion">
+        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-signal text-white transition-colors duration-150 ease-out hover:bg-ion hover:text-void focus:outline-none focus-visible:ring-2 focus-visible:ring-ion disabled:opacity-50">
         
         <SendIcon size={17} strokeWidth={2} />
       </button>
-    </form>);
-
+    </form>
+  );
 }
